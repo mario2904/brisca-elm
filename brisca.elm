@@ -2,6 +2,7 @@ import Html exposing (..)
 import Html.App as Html
 import Html.Attributes exposing (..)
 import Html.Events exposing (..)
+import WebSocket
 
 
 -- CONSTANTS
@@ -37,6 +38,11 @@ main =
     }
 
 
+briscaServer: String
+briscaServer =
+  "wss://brisca-server.herokuapp.com"
+
+
 -- MODEL
 
 
@@ -44,6 +50,8 @@ main =
 type alias Model =
   { players: List Player
   , board: String
+  , input : String          -- For use in Testing the brisca-server
+  , response: String        -- For use in Testing the brisca-server
   }
 
 type alias Player =
@@ -85,7 +93,7 @@ init =                          -- definitely change later on
     board = "img/board.jpg"
 
   in
-    (Model players board, Cmd.none)
+    (Model players board "" "", Cmd.none)
 
 
 -- UPDATE
@@ -96,6 +104,9 @@ type Msg = CardX            -- User clicked on other player's card
   | Card1
   | Card2
   | Card3
+  | Input String
+  | Send
+  | NewMessage String
 
 
 update: Msg -> Model -> (Model, Cmd Msg)
@@ -107,15 +118,25 @@ update msg model =
       moveCard up model msg
     Card3 ->
       moveCard up model msg
+    Input newInput->
+      ({model | input = newInput}, Cmd.none)
+    Send ->
+      (model, WebSocket.send briscaServer model.input)
+    NewMessage str ->
+      ({model | response = str}, Cmd.none)
+
     _ ->
       (model, Cmd.none)
 
 
 
-subscriptions : Model -> Sub Msg            -- For later use in animation
-subscriptions model =
-  Sub.none
 
+-- SUBSCRIPTIONS
+
+
+subscriptions : Model -> Sub Msg
+subscriptions model =
+  WebSocket.listen briscaServer NewMessage
 
 -- VIEW
 
@@ -123,7 +144,14 @@ subscriptions model =
 
 view: Model -> Html Msg
 view model =
-  div [divStyle] (viewCards model)
+  div[]
+    [ div [divStyle] (viewCards model)
+    , div []
+      [ input [onInput Input] []
+      , button [onClick Send] [text "Send"]
+      , div [] [text model.response]
+      ]
+    ]
 
 
 -- STYLES
