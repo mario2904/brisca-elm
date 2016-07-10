@@ -167,11 +167,10 @@ up card =
 
 
 
-
 moveCard: (Card -> Card) -> Model -> Msg -> (Model, Cmd Msg)
-moveCard cardTransform model msg =
-  case (List.head model.players) of         -- Assuming Player1 is always head
-    Nothing ->                              -- of the players List
+moveCard cardTransform model msg =          -- TODO: Make it independant, Only works for Player1 cards.
+  case (List.head model.players) of         -- It assumes Player1 is always head of the players List
+    Nothing ->
       (model,Cmd.none)
     Just player ->
       if player.played then                 -- TODO: Here modify model to alert user
