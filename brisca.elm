@@ -49,6 +49,7 @@ type alias Model =
 type alias Player =
   { cards: List Card
   , playerId: String
+  , played: Bool
   }
 
 type alias Card =
@@ -77,8 +78,8 @@ init =                          -- definitely change later on
     cardP2_2 = Card cardImg CardX p_X2 0
     cardP2_3 = Card cardImg CardX p_X3 0
 
-    player1 = Player [cardP1_1, cardP1_2, cardP1_3] "Player1"
-    player2 = Player [cardP2_1, cardP2_2, cardP2_3] "Player2"
+    player1 = Player [cardP1_1, cardP1_2, cardP1_3] "Player1" False
+    player2 = Player [cardP2_1, cardP2_2, cardP2_3] "Player2" False
     players = [player1, player2]
 
     board = "img/board.jpg"
@@ -91,16 +92,23 @@ init =                          -- definitely change later on
 
 
 
-type Msg = CardX 
+
+type Msg = CardX
   | Card1
   | Card2
-  | Card3                  -- User clicked on other player's card
+  | Card3                   -- User clicked on other player's card
                             -- Future use... Maybe show a message or something
 
 
 update: Msg -> Model -> (Model, Cmd Msg)
 update msg model =
   case msg of
+    Card1 ->
+      moveUp model msg
+    Card2 ->
+      moveUp model msg
+    Card3 ->
+      moveUp model msg
     _ ->
       (model, Cmd.none)
 
@@ -148,6 +156,28 @@ imgStyle x y =
 
 -- VIEW FUNCTION HELPERS
 
+
+moveUp: Model -> Msg -> (Model, Cmd Msg)
+moveUp model msg =
+  case (List.head model.players) of         -- Assuming Player1 is always head
+    Nothing ->                              -- of the players List
+      (model,Cmd.none)
+    Just player ->
+      if player.played then
+        (model,Cmd.none)
+      else
+        case (List.head (List.filter (\card -> card.cardMsg == msg) player.cards)) of
+          Nothing ->
+            (model,Cmd.none)
+          Just card ->
+            let -- Update card y-position
+              newCard = {card | y = (card.y - c.cardHeight - c.margin)} -- Move up
+              newCards = (newCard :: (List.filter (\tmp -> tmp /= card) player.cards)) -- Assuming Player1 is always head
+              newPlayer = {player | cards = newCards, played = True}  -- Assert that player has played his card
+              newPlayers = newPlayer :: (List.filter (\tmp -> tmp /= player) model.players)
+              newModel = {model | players = newPlayers}
+            in
+              (newModel, Cmd.none )
 
 
 viewCards: Model -> List (Html Msg)
