@@ -92,23 +92,21 @@ init =                          -- definitely change later on
 
 
 
-
-type Msg = CardX
+type Msg = CardX            -- User clicked on other player's card
   | Card1
   | Card2
-  | Card3                   -- User clicked on other player's card
-                            -- Future use... Maybe show a message or something
+  | Card3
 
 
 update: Msg -> Model -> (Model, Cmd Msg)
 update msg model =
   case msg of
     Card1 ->
-      moveUp model msg
+      moveCard up model msg
     Card2 ->
-      moveUp model msg
+      moveCard up model msg
     Card3 ->
-      moveUp model msg
+      moveCard up model msg
     _ ->
       (model, Cmd.none)
 
@@ -154,24 +152,37 @@ imgStyle x y =
     ]
 
 
+
+-- TRANSFORM CARD FUNCTIONS
+
+
+
+up: Card -> Card
+up card =
+  {card | y = (card.y - c.cardHeight - c.margin)} -- Move up
+
+
+
 -- VIEW FUNCTION HELPERS
 
 
-moveUp: Model -> Msg -> (Model, Cmd Msg)
-moveUp model msg =
+
+
+moveCard: (Card -> Card) -> Model -> Msg -> (Model, Cmd Msg)
+moveCard cardTransform model msg =
   case (List.head model.players) of         -- Assuming Player1 is always head
     Nothing ->                              -- of the players List
       (model,Cmd.none)
     Just player ->
-      if player.played then
-        (model,Cmd.none)
+      if player.played then                 -- TODO: Here modify model to alert user
+        (model,Cmd.none)                    -- he already made his move
       else
         case (List.head (List.filter (\card -> card.cardMsg == msg) player.cards)) of
           Nothing ->
             (model,Cmd.none)
           Just card ->
             let -- Update card y-position
-              newCard = {card | y = (card.y - c.cardHeight - c.margin)} -- Move up
+              newCard = cardTransform card -- Move up
               newCards = (newCard :: (List.filter (\tmp -> tmp /= card) player.cards)) -- Assuming Player1 is always head
               newPlayer = {player | cards = newCards, played = True}  -- Assert that player has played his card
               newPlayers = newPlayer :: (List.filter (\tmp -> tmp /= player) model.players)
