@@ -191,6 +191,12 @@ up card =
 
 
 
+down: Card -> Card
+down card =
+  {card | y = (card.y + c.cardHeight + c.margin)} -- Move up
+
+
+
 -- VIEW FUNCTION HELPERS
 
 
