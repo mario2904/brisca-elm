@@ -92,10 +92,27 @@ view model =
     ]
 
 
+
+-- STYLES
+
+
+
+divStyle: Attribute msg
+divStyle =
+  style
+    [ ("margin-top", "5px")
+    , ("padding", "10px")
+    , ("border", "1px solid #ddd")
+    , ("border-radius", "4px")
+    , ("cursor", "pointer")
+--    , ("max-width", "150px")
+    ]
+
+
 -- VIEW PLAYERS LIST
 
 
 
 viewList: Model -> List (Html Msg)
 viewList model =
-  List.map (\player -> div [][text player]) model.players
+  List.map (\player -> div [divStyle][text player]) model.players

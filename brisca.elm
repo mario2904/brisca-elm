@@ -1,5 +1,3 @@
-module Game exposing ( Model, Msg, init, update, view )
-
 import Html exposing (..)
 import Html.App as Html
 import Html.Attributes exposing (..)
