@@ -1,3 +1,5 @@
+module Brisca exposing ( Model, Msg, init, update, view, subscriptions)
+
 import Html exposing (..)
 import Html.App as Html
 import Html.Attributes exposing (..)
@@ -16,7 +18,6 @@ type alias Constants =
   }
 
 
-
 c: Constants
 c =
   { boardWidth = 700
@@ -26,16 +27,6 @@ c =
   , margin = 5
   , step = 5
   }
-
-
-
-main =
-  Html.program
-    { init = init
-    , view = view
-    , update = update
-    , subscriptions = subscriptions
-    }
 
 
 briscaServer: String

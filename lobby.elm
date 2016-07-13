@@ -1,19 +1,11 @@
+module Lobby exposing ( Model, Msg, init, update, view, subscriptions )
+
 import Html exposing (..)
 import Html.App as Html
 import Html.Attributes exposing (..)
 import Html.Events exposing (..)
-import WebSocket
 import Route.QueryString exposing (..)
-
-
-
-main =
-  Html.program
-    { init = init
-    , view = view
-    , update = update
-    , subscriptions = subscriptions
-    }
+import WebSocket
 
 
 briscaServer: String
@@ -90,7 +82,6 @@ view model =
     [ h1 [] [text model.playerId]
     , div [] (viewList model)
     ]
-
 
 
 -- STYLES
