@@ -54,12 +54,12 @@ update msg model =
         qs = parse str
         cmd = one string "cmd" qs |> Maybe.withDefault ""  -- handle Error
       in
-        if cmd == "updatePlayers" then
+        if cmd == "updatePlayers" then                  -- Update List Players
           let
             newPlayers = all "players" qs
           in
             ({model | players = newPlayers}, Cmd.none)
-        else if cmd == "playerId" then
+        else if cmd == "playerId" then                  -- Update my PlayerId
           let
             newPlayerId = one string "player" qs |> Maybe.withDefault "Guest"-- handle Error
           in
@@ -71,9 +71,8 @@ update msg model =
       (model, Cmd.none)
 
 
-
-
 -- SUBSCRIPTIONS
+
 
 
 subscriptions : Model -> Sub Msg
@@ -94,6 +93,7 @@ view model =
 
 
 -- VIEW PLAYERS LIST
+
 
 
 viewList: Model -> List (Html Msg)

@@ -1,3 +1,5 @@
+module Game exposing ( Model, Msg, init, update, view )
+
 import Html exposing (..)
 import Html.App as Html
 import Html.Attributes exposing (..)
@@ -52,6 +54,7 @@ type alias Model =
   , board: String
   , input : String          -- For use in Testing the brisca-server
   , response: String        -- For use in Testing the brisca-server
+  , status: String
   }
 
 type alias Player =
@@ -62,7 +65,7 @@ type alias Player =
 
 type alias Card =
   { name: String
-  , cardMsg: Msg
+  , cardPos: Int            -- [0,1,2]
   , x: Int
   , y: Int
   }
@@ -78,13 +81,13 @@ init =                          -- definitely change later on
     p_X2 = p_X1 + c.cardWidth + (2 * c.margin)
     p_X3 = p_X2 + c.cardWidth + (2 * c.margin)
 
-    cardP1_1 = Card cardImg Card1 p_X1 p1_Y
-    cardP1_2 = Card cardImg Card2 p_X2 p1_Y
-    cardP1_3 = Card cardImg Card3 p_X3 p1_Y
+    cardP1_1 = Card cardImg 0 p_X1 p1_Y
+    cardP1_2 = Card cardImg 1 p_X2 p1_Y
+    cardP1_3 = Card cardImg 2 p_X3 p1_Y
 
-    cardP2_1 = Card cardImg CardX p_X1 0
-    cardP2_2 = Card cardImg CardX p_X2 0
-    cardP2_3 = Card cardImg CardX p_X3 0
+    cardP2_1 = Card cardImg 0 p_X1 0
+    cardP2_2 = Card cardImg 1 p_X2 0
+    cardP2_3 = Card cardImg 2 p_X3 0
 
     player1 = Player [cardP1_1, cardP1_2, cardP1_3] "Player1" False
     player2 = Player [cardP2_1, cardP2_2, cardP2_3] "Player2" False
@@ -93,17 +96,14 @@ init =                          -- definitely change later on
     board = "img/board.jpg"
 
   in
-    (Model players board "" "", Cmd.none)
+    (Model players board "" "" "Game Started", Cmd.none)
 
 
 -- UPDATE
 
 
 
-type Msg = CardX            -- User clicked on other player's card
-  | Card1
-  | Card2
-  | Card3
+type Msg = Move String Int
   | Input String
   | Send
   | NewMessage String
@@ -112,12 +112,16 @@ type Msg = CardX            -- User clicked on other player's card
 update: Msg -> Model -> (Model, Cmd Msg)
 update msg model =
   case msg of
-    Card1 ->
-      moveCard up model msg
-    Card2 ->
-      moveCard up model msg
-    Card3 ->
-      moveCard up model msg
+    Move id cardPos ->
+      case (List.head model.players) of       -- Player (himself) is always
+        Nothing ->                            -- the head of the players list
+          (model, Cmd.none)
+        Just player ->
+          if player.playerId == id then
+            moveCard up id cardPos model
+          else
+            ({model | status = "Don't touch other player cards!"}, Cmd.none)
+
     Input newInput->
       ({model | input = newInput}, Cmd.none)
     Send ->
@@ -125,18 +129,15 @@ update msg model =
     NewMessage str ->
       ({model | response = str}, Cmd.none)
 
-    _ ->
-      (model, Cmd.none)
-
-
-
 
 -- SUBSCRIPTIONS
+
 
 
 subscriptions : Model -> Sub Msg
 subscriptions model =
   WebSocket.listen briscaServer NewMessage
+
 
 -- VIEW
 
@@ -146,6 +147,7 @@ view: Model -> Html Msg
 view model =
   div[]
     [ div [divStyle] (viewCards model)
+    , h1 [][text model.status]
     , div []
       [ input [onInput Input] []
       , button [onClick Send] [text "Send"]
@@ -180,7 +182,6 @@ imgStyle x y =
     ]
 
 
-
 -- TRANSFORM CARD FUNCTIONS
 
 
@@ -190,33 +191,31 @@ up card =
   {card | y = (card.y - c.cardHeight - c.margin)} -- Move up
 
 
-
 down: Card -> Card
 down card =
   {card | y = (card.y + c.cardHeight + c.margin)} -- Move up
-
 
 
 -- VIEW FUNCTION HELPERS
 
 
 
-moveCard: (Card -> Card) -> Model -> Msg -> (Model, Cmd Msg)
-moveCard cardTransform model msg =          -- TODO: Make it independant, Only works for Player1 cards.
-  case (List.head model.players) of         -- It assumes Player1 is always head of the players List
+moveCard: (Card -> Card) -> String -> Int -> Model -> (Model, Cmd Msg)
+moveCard cardTransform id cardPos model =
+  case (List.head (List.filter (\player -> player.playerId == id) model.players)) of
     Nothing ->
       (model,Cmd.none)
     Just player ->
-      if player.played then                 -- TODO: Here modify model to alert user
-        (model,Cmd.none)                    -- he already made his move
+      if player.played then
+        ({model | status = "You already played this round."},Cmd.none)
       else
-        case (List.head (List.filter (\card -> card.cardMsg == msg) player.cards)) of
+        case (List.head (List.filter (\card -> card.cardPos == cardPos) player.cards)) of
           Nothing ->
             (model,Cmd.none)
           Just card ->
-            let -- Update card y-position
-              newCard = cardTransform card -- Move up
-              newCards = (newCard :: (List.filter (\tmp -> tmp /= card) player.cards)) -- Assuming Player1 is always head
+            let -- Update card
+              newCard = cardTransform card -- moveCard
+              newCards = (newCard :: (List.filter (\tmp -> tmp /= card) player.cards))
               newPlayer = {player | cards = newCards, played = True}  -- Assert that player has played his card
               newPlayers = newPlayer :: (List.filter (\tmp -> tmp /= player) model.players)
               newModel = {model | players = newPlayers}
@@ -226,6 +225,6 @@ moveCard cardTransform model msg =          -- TODO: Make it independant, Only w
 
 viewCards: Model -> List (Html Msg)
 viewCards model =
-  List.concatMap (\player ->             -- Test here for player.playerId
-    List.map (\{name, cardMsg, x, y} ->
-      img [src name, (imgStyle x y), onClick cardMsg] []) player.cards) model.players
+  List.concatMap (\player ->
+    List.map (\{name, cardPos, x, y} ->
+      img [src name, (imgStyle x y), onClick (Move player.playerId cardPos)] []) player.cards) model.players
