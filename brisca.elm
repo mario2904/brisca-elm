@@ -59,8 +59,8 @@ type alias Card =
   , y: Int
   }
 
-init: (Model, Cmd Msg)          -- For testing purposes... This will
-init =                          -- definitely change later on
+init: String -> String -> (Model, Cmd Msg)          -- For testing purposes... This will
+init strPlayer1 strPlayer2 =                        -- definitely change later on
   let                           -- in the mean time hardcode the initial state
     cardImg = "img/flippedVertical.jpg"
 
@@ -78,8 +78,8 @@ init =                          -- definitely change later on
     cardP2_2 = Card cardImg 1 p_X2 0
     cardP2_3 = Card cardImg 2 p_X3 0
 
-    player1 = Player [cardP1_1, cardP1_2, cardP1_3] "Player1" False
-    player2 = Player [cardP2_1, cardP2_2, cardP2_3] "Player2" False
+    player1 = Player [cardP1_1, cardP1_2, cardP1_3] strPlayer1 False
+    player2 = Player [cardP2_1, cardP2_2, cardP2_3] strPlayer2 False
     players = [player1, player2]
 
     board = "img/board.jpg"
@@ -137,6 +137,7 @@ view model =
   div[]
     [ div [divStyle] (viewCards model)
     , h1 [][text model.status]
+    , (viewPlayers model)
     , div []
       [ input [onInput Input] []
       , button [onClick Send] [text "Send"]
@@ -217,3 +218,11 @@ viewCards model =
   List.concatMap (\player ->
     List.map (\{name, cardPos, x, y} ->
       img [src name, (imgStyle x y), onClick (Move player.playerId cardPos)] []) player.cards) model.players
+
+
+viewPlayers: Model -> Html Msg
+viewPlayers model =
+  div []
+    [ h1 [][text "Players:"]
+    , ol [] (List.map (\player -> li [][text player.playerId]) model.players)
+    ]
