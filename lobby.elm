@@ -20,21 +20,21 @@ briscaServer =
 type alias Model =
   { players: List String
   , playerId: String
+  , playerClicked: String
   }
 
 
 init: (Model, Cmd Msg)
 init =
-  (Model [] "", Cmd.none)
+  (Model [] "" "", Cmd.none)
 
 
 -- UPDATE
 
 
 
-type Msg = Send
-  | Input String
-  | NewMessage String
+type Msg = NewMessage String
+  | PlayerClicked String
 
 
 update: Msg -> Model -> (Model, Cmd Msg)
@@ -57,9 +57,8 @@ update msg model =
             ({model | playerId = newPlayerId}, Cmd.none)
         else
           (model, Cmd.none)
-
-    _ ->
-      (model, Cmd.none)
+    PlayerClicked str ->
+      ({model | playerClicked = (Debug.log "Player Clicked: "str)}, Cmd.none)
 
 
 -- SUBSCRIPTIONS
@@ -105,4 +104,4 @@ divStyle =
 
 viewList: Model -> List (Html Msg)
 viewList model =
-  List.map (\player -> div [divStyle][text player]) model.players
+  List.map (\player -> div [divStyle, onClick (PlayerClicked player)][text player]) model.players

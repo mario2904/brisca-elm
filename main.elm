@@ -2,6 +2,7 @@ import Html exposing (..)
 import Html.App as Html
 import Html.Attributes exposing (..)
 import Html.Events exposing (..)
+import String
 
 import Brisca
 import Lobby
@@ -33,7 +34,7 @@ init =
   let
     (initLobbyModel, lobbyCmd) = Lobby.init
     (initBriscaModel, briscaCmd) = Brisca.init "Player1" "Player2"
-    (initPlayerInfoModel, playerInfoCmd) = PlayerInfo.init "Loading..."
+    (initPlayerInfoModel, playerInfoCmd) = PlayerInfo.init "" -- When passing Empty String, Player Info will handle it "Gracefully"
   in
     (Model "Lobby" initLobbyModel initBriscaModel initPlayerInfoModel
     , Cmd.batch
@@ -62,11 +63,6 @@ update msg model =
         (initBriscaModel, briscaCmd) = Brisca.init model.lobbyModel.playerId "Player2"
       in
         ({model | page = newPage, briscaModel = initBriscaModel}, Cmd.map BriscaMsg briscaCmd)
-    LobbyMsg subMsg ->
-      let
-        (updatedLobbyModel, lobbyCmd) = Lobby.update subMsg model.lobbyModel
-      in
-        ({model | lobbyModel = updatedLobbyModel}, Cmd.map LobbyMsg lobbyCmd)
     BriscaMsg subMsg ->
       let
         (updatedBriscaModel, briscaCmd) = Brisca.update subMsg model.briscaModel
@@ -77,7 +73,23 @@ update msg model =
         (updatedPlayerInfoModel, playerInfoCmd) = PlayerInfo.update subMsg model.playerInfoModel
       in
         ({model | playerInfoModel = updatedPlayerInfoModel}, Cmd.map PlayerInfoMsg playerInfoCmd)
-
+    LobbyMsg subMsg ->
+      let
+        (updatedLobbyModel, lobbyCmd) = Lobby.update subMsg model.lobbyModel
+      in  -- Check if user clicked a player in the list
+        if (String.isEmpty updatedLobbyModel.playerClicked) then
+          ({model | lobbyModel = updatedLobbyModel}, Cmd.map LobbyMsg lobbyCmd)
+        else -- Go to Player Info page (Call his respective init function and pass the string of the user clicked)
+          let
+            (initPlayerInfoModel, playerInfoCmd) = PlayerInfo.init updatedLobbyModel.playerClicked
+          in
+            ( { model
+              | page = "PlayerInfo"
+              , lobbyModel = {updatedLobbyModel | playerClicked = ""}
+              , playerInfoModel = initPlayerInfoModel
+              }
+            , Cmd.map PlayerInfoMsg playerInfoCmd
+            )
 
 -- SUBSCIPTIONS
 

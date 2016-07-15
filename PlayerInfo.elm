@@ -6,7 +6,7 @@ import Html.Attributes exposing (..)
 import Html.Events exposing (..)
 import Route.QueryString exposing (..)
 import WebSocket
-
+import String
 
 
 briscaServer: String
@@ -29,14 +29,18 @@ type alias Model =
 
 init: String -> (Model, Cmd Msg)
 init strPlayer =
-  let
-    -- Create querystring to fetch player info
-    cmd = empty
-    |> add "cmd" "getPlayerInfo"
-    |> add "player" strPlayer
-    |> render
-  in
-    (Model strPlayer "False" 0 0 0, WebSocket.send briscaServer cmd)
+  if String.isEmpty strPlayer then
+    (Model "IDK..." "false" 0 0 0, Cmd.none)
+  else
+    let
+      -- Create querystring to fetch player info
+      cmd = empty
+      |> add "cmd" "getPlayerInfo"
+      |> add "player" strPlayer
+      |> render
+      |> String.dropLeft 1        -- Get rid of the '?' at the beginning of qs
+    in
+      (Model strPlayer "false" 0 0 0, WebSocket.send briscaServer cmd)
 
 
 -- UPDATE
@@ -52,18 +56,20 @@ update msg model =
     NewMessage str ->
       let
         qs = parse str
-        cmd = one string "cmd" qs |> Maybe.withDefault ""  -- handle Error
+        cmd = one string "cmd" qs |> Maybe.withDefault "Error!!!Should Never Happen"  -- handle Error
       in
         if cmd == "playerInfo" then
           let
-            isPlaying = one string "isPlaying" qs |> Maybe.withDefault "False"  -- handle Error
+            isPlaying = one string "isPlaying" qs |> Maybe.withDefault "IDK"  -- handle Error
             points = one int "points" qs |> Maybe.withDefault 0 -- handle Error
             gamesWon = one int "gamesWon" qs |> Maybe.withDefault 0 -- handle Error
             gamesLost = one int "gamesLost" qs |> Maybe.withDefault 0 -- handle Error
           in
             (Model model.player isPlaying points gamesWon gamesLost, Cmd.none)
-        else
+        else if cmd == "Error" then
           ({model | player = "Error"}, Cmd.none) -- Send Error
+        else -- Do Nothing
+          (model, Cmd.none)
 
 
 -- SUBSCIPTIONS
