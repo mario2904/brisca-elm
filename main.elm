@@ -2,6 +2,9 @@ import Html exposing (..)
 import Html.App as Html
 import Html.Attributes exposing (..)
 import Html.Events exposing (..)
+
+import Route.QueryString exposing (..)
+import WebSocket
 import String
 
 import Brisca
@@ -16,6 +19,11 @@ main =
     , update = update
     , subscriptions = subscriptions
     }
+
+
+briscaServer: String
+briscaServer =
+  "wss://brisca-server.herokuapp.com"
 
 
 -- MODEL
@@ -53,12 +61,35 @@ type Msg = ChangePage String
   | LobbyMsg Lobby.Msg
   | BriscaMsg Brisca.Msg
   | PlayerInfoMsg PlayerInfo.Msg
+  | NewMessage String
+
 
 
 update: Msg -> Model -> (Model, Cmd Msg)
 update msg model =
   case msg of
-    ChangePage newPage ->
+    NewMessage qstr -> -- Main's webSocket subscription
+      let -- Parse QueryString
+        qs = parse (Debug.log "QueryString recieved in Main: " qstr)
+        cmd = one string "cmd" qs |> Maybe.withDefault "Error!!!Should Never Happen"  -- handle Error
+      in
+        if cmd == "playerInfo" then -- Pass query string to PlayerInfo Page and render that page
+          let
+            (initPlayerInfoModel, playerInfoCmd) = PlayerInfo.init qstr
+          in
+            ( { model
+              | playerInfoModel = initPlayerInfoModel
+              , page = "PlayerInfo"
+              }
+            , Cmd.map PlayerInfoMsg playerInfoCmd)
+        else if cmd == "Error" then -- Should not happen. Throw error message to console
+          let
+            debugLog = (Debug.log "Error ocurred: " qstr)
+          in
+           (model, Cmd.none)
+        else -- Future use
+          (model, Cmd.none)
+    ChangePage newPage -> -- For debugging only. I will Eventually delete this.
       let
         (initBriscaModel, briscaCmd) = Brisca.init model.lobbyModel.playerId "Player2"
       in
@@ -74,22 +105,22 @@ update msg model =
       in
         ({model | playerInfoModel = updatedPlayerInfoModel}, Cmd.map PlayerInfoMsg playerInfoCmd)
     LobbyMsg subMsg ->
-      let
-        (updatedLobbyModel, lobbyCmd) = Lobby.update subMsg model.lobbyModel
-      in  -- Check if user clicked a player in the list
-        if (String.isEmpty updatedLobbyModel.playerClicked) then
-          ({model | lobbyModel = updatedLobbyModel}, Cmd.map LobbyMsg lobbyCmd)
-        else -- Go to Player Info page (Call his respective init function and pass the string of the user clicked)
-          let
-            (initPlayerInfoModel, playerInfoCmd) = PlayerInfo.init updatedLobbyModel.playerClicked
+      case subMsg of
+        Lobby.PlayerClicked strPlayer -> -- Check if user clicked a player in the list
+          let -- Create querystring to request player's information
+            cmd = empty
+            |> add "cmd" "getPlayerInfo"
+            |> add "player" strPlayer
+            |> render
+            |> String.dropLeft 1        -- Get rid of the '?' at the beginning of qs
           in
-            ( { model
-              | page = "PlayerInfo"
-              , lobbyModel = {updatedLobbyModel | playerClicked = ""}
-              , playerInfoModel = initPlayerInfoModel
-              }
-            , Cmd.map PlayerInfoMsg playerInfoCmd
-            )
+            (model, WebSocket.send briscaServer cmd) -- Send request
+        _ ->
+          let
+            (updatedLobbyModel, lobbyCmd) = Lobby.update subMsg model.lobbyModel
+          in
+            ({model | lobbyModel = updatedLobbyModel}, Cmd.map LobbyMsg lobbyCmd)
+
 
 -- SUBSCIPTIONS
 
@@ -100,7 +131,7 @@ subscriptions model =
   Sub.batch
     [ Sub.map LobbyMsg (Lobby.subscriptions model.lobbyModel)
     , Sub.map BriscaMsg (Brisca.subscriptions model.briscaModel)
-    , Sub.map PlayerInfoMsg (PlayerInfo.subscriptions model.playerInfoModel)
+    , WebSocket.listen briscaServer NewMessage -- Belongs to Main
     ]
 
 
