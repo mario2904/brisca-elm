@@ -22,12 +22,12 @@ type alias Model =
 
 
 init: String -> (Model, Cmd Msg)
-init qstrPlayer =
-  if String.isEmpty qstrPlayer then
+init qstrPlayerInfo =
+  if String.isEmpty qstrPlayerInfo then
     (Model "IDK..." "false" 0 0 0, Cmd.none)
   else
-    let
-      qs = parse qstrPlayer
+    let -- Parse Query String and update Model with new values
+      qs = parse qstrPlayerInfo
       player = one string "player" qs |> Maybe.withDefault "IDK"  -- handle Error
       isPlaying = one string "isPlaying" qs |> Maybe.withDefault "IDK"  -- handle Error
       points = one int "points" qs |> Maybe.withDefault 0 -- handle Error

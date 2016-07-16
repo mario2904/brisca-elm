@@ -1,4 +1,4 @@
-module Lobby exposing ( Model, Msg (PlayerClicked), init, update, view, subscriptions )
+module Lobby exposing ( Model, Msg (PlayerClicked), init, update, view)
 
 import Html exposing (..)
 import Html.App as Html
@@ -6,11 +6,7 @@ import Html.Attributes exposing (..)
 import Html.Events exposing (..)
 import Route.QueryString exposing (..)
 import WebSocket
-
-
-briscaServer: String
-briscaServer =
-  "wss://brisca-server.herokuapp.com"
+import String
 
 
 -- MODEL
@@ -18,56 +14,36 @@ briscaServer =
 
 
 type alias Model =
-  { players: List String
-  , playerId: String
+  { playerId: String
+  , players: List String
   , playerClicked: String
   }
 
 
-init: (Model, Cmd Msg)
-init =
-  (Model [] "" "", Cmd.none)
+init: String -> String -> (Model, Cmd Msg)
+init player qstr =
+  if (String.isEmpty player) || (String.isEmpty qstr) then
+    (Model "" [] "", Cmd.none)
+  else
+    let
+      qs = parse qstr
+      newPlayers = all "players" qs
+    in
+      (Model player newPlayers "", Cmd.none)
 
 
 -- UPDATE
 
 
 
-type Msg = NewMessage String
-  | PlayerClicked String
+type Msg = PlayerClicked String
 
 
 update: Msg -> Model -> (Model, Cmd Msg)
 update msg model =
   case msg of
-    NewMessage str ->   -- PARSE QUERYSTRING AND RESOLVE
-      let
-        qs = parse str
-        cmd = one string "cmd" qs |> Maybe.withDefault ""  -- handle Error
-      in
-        if cmd == "updatePlayers" then                  -- Update List Players
-          let
-            newPlayers = all "players" qs
-          in
-            ({model | players = newPlayers}, Cmd.none)
-        else if cmd == "playerId" then                  -- Update my PlayerId
-          let
-            newPlayerId = one string "player" qs |> Maybe.withDefault "Guest"-- handle Error
-          in
-            ({model | playerId = newPlayerId}, Cmd.none)
-        else
-          (model, Cmd.none)
-    PlayerClicked str ->
+    PlayerClicked str -> -- Handled by the Parent (Main.elm)
       ({model | playerClicked = (Debug.log "Player Clicked: "str)}, Cmd.none)
-
-
--- SUBSCRIPTIONS
-
-
-
-subscriptions : Model -> Sub Msg
-subscriptions model =
-  WebSocket.listen briscaServer NewMessage
 
 
 -- VIEW

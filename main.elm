@@ -32,6 +32,7 @@ briscaServer =
 
 type alias Model =
   { page: String
+  , playerId: String
   , lobbyModel : Lobby.Model
   , briscaModel: Brisca.Model
   , playerInfoModel: PlayerInfo.Model
@@ -40,11 +41,11 @@ type alias Model =
 init: (Model, Cmd Msg)
 init =
   let
-    (initLobbyModel, lobbyCmd) = Lobby.init
+    (initLobbyModel, lobbyCmd) = Lobby.init "" ""
     (initBriscaModel, briscaCmd) = Brisca.init "Player1" "Player2"
     (initPlayerInfoModel, playerInfoCmd) = PlayerInfo.init "" -- When passing Empty String, Player Info will handle it "Gracefully"
   in
-    (Model "Lobby" initLobbyModel initBriscaModel initPlayerInfoModel
+    (Model "Lobby" "" initLobbyModel initBriscaModel initPlayerInfoModel -- Player id is unknown at first Empty string
     , Cmd.batch
       [ Cmd.map LobbyMsg lobbyCmd
       , Cmd.map BriscaMsg briscaCmd
@@ -68,12 +69,25 @@ type Msg = ChangePage String
 update: Msg -> Model -> (Model, Cmd Msg)
 update msg model =
   case msg of
-    NewMessage qstr -> -- Main's webSocket subscription
+    NewMessage qstr -> -- Main's webSocket subscription. Distribute all messages to their respective page to update.
       let -- Parse QueryString
         qs = parse (Debug.log "QueryString recieved in Main: " qstr)
         cmd = one string "cmd" qs |> Maybe.withDefault "Error!!!Should Never Happen"  -- handle Error
       in
-        if cmd == "playerInfo" then -- Pass query string to PlayerInfo Page and render that page
+        if cmd == "playerId" then -- Set Main model player Id
+          let
+            player = one string "player" qs |> Maybe.withDefault "Error!!!Should Never Happen"  -- handle Error
+          in
+          ({model | playerId = player}, Cmd.none)
+        else if cmd == "updatePlayers" then  -- Pass query string to Lobby Page and re-render that page
+          let
+            (initLobbyModel, lobbyCmd) = Lobby.init model.playerId qstr
+          in --- Check if page == "Lobby"  ???
+            ( { model
+              | lobbyModel = initLobbyModel
+              }
+            , Cmd.map LobbyMsg lobbyCmd)
+        else if cmd == "playerInfo" then -- Pass query string to PlayerInfo Page and render that page
           let
             (initPlayerInfoModel, playerInfoCmd) = PlayerInfo.init qstr
           in
@@ -115,11 +129,11 @@ update msg model =
             |> String.dropLeft 1        -- Get rid of the '?' at the beginning of qs
           in
             (model, WebSocket.send briscaServer cmd) -- Send request
-        _ ->
-          let
-            (updatedLobbyModel, lobbyCmd) = Lobby.update subMsg model.lobbyModel
-          in
-            ({model | lobbyModel = updatedLobbyModel}, Cmd.map LobbyMsg lobbyCmd)
+--        _ ->
+--          let
+--            (updatedLobbyModel, lobbyCmd) = Lobby.update subMsg model.lobbyModel
+--          in
+--            ({model | lobbyModel = updatedLobbyModel}, Cmd.map LobbyMsg lobbyCmd)
 
 
 -- SUBSCIPTIONS
@@ -129,8 +143,7 @@ update msg model =
 subscriptions : Model -> Sub Msg
 subscriptions model =
   Sub.batch
-    [ Sub.map LobbyMsg (Lobby.subscriptions model.lobbyModel)
-    , Sub.map BriscaMsg (Brisca.subscriptions model.briscaModel)
+    [ Sub.map BriscaMsg (Brisca.subscriptions model.briscaModel)
     , WebSocket.listen briscaServer NewMessage -- Belongs to Main
     ]
 
