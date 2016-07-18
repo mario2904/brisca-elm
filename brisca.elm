@@ -1,4 +1,4 @@
-module Brisca exposing ( Model, Msg, init, update, view, subscriptions)
+module Brisca exposing (Model, Msg, init, update, view, subscriptions)
 
 import Html exposing (..)
 import Html.App as Html

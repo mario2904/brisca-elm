@@ -1,4 +1,4 @@
-module PlayerInfo exposing ( Model, Msg, init, update, view)
+module PlayerInfo exposing (Model, Msg (AskToPlay,Back), init, update, view)
 
 import Html exposing (..)
 import Html.App as Html
@@ -41,13 +41,14 @@ init qstrPlayerInfo =
 
 
 
-type Msg = NewMessage String
+type Msg = AskToPlay String
+  | Back
 
 
 update: Msg -> Model -> (Model, Cmd Msg)
 update msg model =
   case msg of
-    _ ->
+    _ -> -- Handled by the Parent (Main.elm)
       (model, Cmd.none)
 
 
@@ -63,4 +64,6 @@ view model =
       , div [][text ("Total Points: " ++ (toString model.points))]
       , div [][text ("Games Won: " ++ (toString model.gamesWon))]
       , div [][text ("Games Lost: " ++ (toString model.gamesLost))]
+      , button [onClick (AskToPlay model.player)][text "Ask to Play!"]
+      , button [onClick Back][text "Back"]
       ]

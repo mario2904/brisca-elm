@@ -33,10 +33,19 @@ briscaServer =
 type alias Model =
   { page: String
   , playerId: String
+  , gameId: String
+  , gameRequests: List GameRequest
   , lobbyModel : Lobby.Model
   , briscaModel: Brisca.Model
   , playerInfoModel: PlayerInfo.Model
   }
+
+
+type alias GameRequest =
+  { player: String  -- Player that created the game
+  , gameId: String
+  }
+
 
 init: (Model, Cmd Msg)
 init =
@@ -45,7 +54,7 @@ init =
     (initBriscaModel, briscaCmd) = Brisca.init "Player1" "Player2"
     (initPlayerInfoModel, playerInfoCmd) = PlayerInfo.init "" -- When passing Empty String, Player Info will handle it "Gracefully"
   in
-    (Model "Lobby" "" initLobbyModel initBriscaModel initPlayerInfoModel -- Player id is unknown at first Empty string
+    (Model "Lobby" "" "" [] initLobbyModel initBriscaModel initPlayerInfoModel -- Player id is unknown at first Empty string
     , Cmd.batch
       [ Cmd.map LobbyMsg lobbyCmd
       , Cmd.map BriscaMsg briscaCmd
@@ -96,6 +105,18 @@ update msg model =
               , page = "PlayerInfo"
               }
             , Cmd.map PlayerInfoMsg playerInfoCmd)
+        else if cmd == "requestToPlay" then
+          let
+            player = one string "playerFrom" qs |> Maybe.withDefault "Error!!!Should Never Happen"  -- handle Error
+            gameId = one string "gameId" qs |> Maybe.withDefault "Error!!!Should Never Happen"  -- handle Error
+            newGameRequest = GameRequest player gameId
+          in
+          ({model | gameRequests = newGameRequest :: model.gameRequests}, Cmd.none)
+        else if cmd == "gameId" then
+          let
+            game = one string "gameId" qs |> Maybe.withDefault "Error!!!Should Never Happen"  -- handle Error
+          in
+            ({model | gameId = game}, Cmd.none)
         else if cmd == "Error" then -- Should not happen. Throw error message to console
           let
             debugLog = (Debug.log "Error ocurred: " qstr)
@@ -114,10 +135,19 @@ update msg model =
       in
         ({model | briscaModel = updatedBriscaModel}, Cmd.map BriscaMsg briscaCmd)
     PlayerInfoMsg subMsg ->
-      let
-        (updatedPlayerInfoModel, playerInfoCmd) = PlayerInfo.update subMsg model.playerInfoModel
-      in
-        ({model | playerInfoModel = updatedPlayerInfoModel}, Cmd.map PlayerInfoMsg playerInfoCmd)
+      case subMsg of
+        PlayerInfo.AskToPlay strPlayer ->
+          let -- Create querystring to ask a player to play a game
+            cmd = empty
+            |> add "cmd" "askToPlay"
+            |> add "playerFrom" model.playerId
+            |> add "playerTo" strPlayer
+            |> render
+            |> String.dropLeft 1        -- Get rid of the '?' at the beginning of qs
+          in -- TODO: Change the page to a waiting page. Until the other player responds to the request.
+            (model, WebSocket.send briscaServer cmd)
+        PlayerInfo.Back ->
+          ({model | page = "Lobby"}, Cmd.none)
     LobbyMsg subMsg ->
       case subMsg of
         Lobby.PlayerClicked strPlayer -> -- Check if user clicked a player in the list
@@ -129,11 +159,6 @@ update msg model =
             |> String.dropLeft 1        -- Get rid of the '?' at the beginning of qs
           in
             (model, WebSocket.send briscaServer cmd) -- Send request
---        _ ->
---          let
---            (updatedLobbyModel, lobbyCmd) = Lobby.update subMsg model.lobbyModel
---          in
---            ({model | lobbyModel = updatedLobbyModel}, Cmd.map LobbyMsg lobbyCmd)
 
 
 -- SUBSCIPTIONS
@@ -157,20 +182,33 @@ view model =
   if model.page == "Lobby" then
     div []
       [ button [onClick (ChangePage "Brisca")][text "Press me to change page: Brisca"]
-      , button [onClick (ChangePage "PlayerInfo")][text "Press me to change page: PlayerInfo"]
       , Html.map LobbyMsg (Lobby.view model.lobbyModel)
+      , viewGameRequests model
       ]
   else if model.page == "Brisca" then
     div []
       [ button [onClick (ChangePage "Lobby")][text "Press me to change page: Lobby"]
-      , button [onClick (ChangePage "PlayerInfo")][text "Press me to change page: PlayerInfo"]
       , Html.map BriscaMsg (Brisca.view model.briscaModel)
       ]
   else if model.page == "PlayerInfo" then
     div []
-      [ button [onClick (ChangePage "Lobby")][text "Press me to change page: Lobby"]
-      , button [onClick (ChangePage "Brisca")][text "Press me to change page: Brisca"]
-      , Html.map PlayerInfoMsg (PlayerInfo.view model.playerInfoModel)
-      ]
+      [ Html.map PlayerInfoMsg (PlayerInfo.view model.playerInfoModel)]
   else
     div [][]
+
+
+-- VIEW GAMEREQUESTS
+
+
+viewGameRequests: Model -> Html Msg
+viewGameRequests model =
+  div []
+    [ h1 [][text "Game Requests:"]
+    , ul []
+      (List.map (\req ->
+        li []
+          [ div [] [text ("GameID: " ++ req.gameId)]
+          , div [] [text ("Creator: " ++ req.player)]
+          ]
+      ) model.gameRequests)
+    ]

@@ -1,4 +1,4 @@
-module Lobby exposing ( Model, Msg (PlayerClicked), init, update, view)
+module Lobby exposing (Model, Msg (PlayerClicked), init, update, view)
 
 import Html exposing (..)
 import Html.App as Html
