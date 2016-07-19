@@ -10,6 +10,7 @@ import String
 import Brisca
 import Lobby
 import PlayerInfo
+import Waiting
 
 
 main =
@@ -38,6 +39,7 @@ type alias Model =
   , lobbyModel : Lobby.Model
   , briscaModel: Brisca.Model
   , playerInfoModel: PlayerInfo.Model
+  , waitingModel: Waiting.Model
   }
 
 
@@ -50,15 +52,17 @@ type alias GameRequest =
 init: (Model, Cmd Msg)
 init =
   let
+    (initWaitingModel, waitingCmd) = Waiting.init ""
     (initLobbyModel, lobbyCmd) = Lobby.init "" ""
     (initBriscaModel, briscaCmd) = Brisca.init "Player1" "Player2"
     (initPlayerInfoModel, playerInfoCmd) = PlayerInfo.init "" -- When passing Empty String, Player Info will handle it "Gracefully"
   in
-    (Model "Lobby" "" "" [] initLobbyModel initBriscaModel initPlayerInfoModel -- Player id is unknown at first Empty string
+    (Model "Lobby" "" "" [] initLobbyModel initBriscaModel initPlayerInfoModel initWaitingModel -- Player id is unknown at first Empty string
     , Cmd.batch
       [ Cmd.map LobbyMsg lobbyCmd
       , Cmd.map BriscaMsg briscaCmd
       , Cmd.map PlayerInfoMsg playerInfoCmd
+      , Cmd.map WaitingMsg waitingCmd
       ]
     )
 
@@ -71,6 +75,7 @@ type Msg = ChangePage String
   | LobbyMsg Lobby.Msg
   | BriscaMsg Brisca.Msg
   | PlayerInfoMsg PlayerInfo.Msg
+  | WaitingMsg Waiting.Msg
   | NewMessage String
 
 
@@ -159,6 +164,10 @@ update msg model =
             |> String.dropLeft 1        -- Get rid of the '?' at the beginning of qs
           in
             (model, WebSocket.send briscaServer cmd) -- Send request
+    WaitingMsg subMsg ->
+      case subMsg of
+        Waiting.Cancel ->
+          ({model | page = "Lobby"}, Cmd.none)
 
 
 -- SUBSCIPTIONS
@@ -192,7 +201,12 @@ view model =
       ]
   else if model.page == "PlayerInfo" then
     div []
-      [ Html.map PlayerInfoMsg (PlayerInfo.view model.playerInfoModel)]
+      [ Html.map PlayerInfoMsg (PlayerInfo.view model.playerInfoModel)
+      ]
+  else if model.page == "Waiting" then
+    div []
+      [ Html.map WaitingMsg (Waiting.view model.waitingModel)
+      ]
   else
     div [][]
 
