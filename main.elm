@@ -34,7 +34,6 @@ briscaServer =
 type alias Model =
   { page: String
   , playerId: String
-  , gameId: String
   , gameRequests: List GameRequest
   , lobbyModel : Lobby.Model
   , briscaModel: Brisca.Model
@@ -57,7 +56,7 @@ init =
     (initBriscaModel, briscaCmd) = Brisca.init "Player1" "Player2"
     (initPlayerInfoModel, playerInfoCmd) = PlayerInfo.init "" -- When passing Empty String, Player Info will handle it "Gracefully"
   in
-    (Model "Lobby" "" "" [] initLobbyModel initBriscaModel initPlayerInfoModel initWaitingModel -- Player id is unknown at first Empty string
+    (Model "Lobby" "" [] initLobbyModel initBriscaModel initPlayerInfoModel initWaitingModel -- Player id is unknown at first Empty string
     , Cmd.batch
       [ Cmd.map LobbyMsg lobbyCmd
       , Cmd.map BriscaMsg briscaCmd
@@ -117,11 +116,11 @@ update msg model =
             newGameRequest = GameRequest player gameId
           in
           ({model | gameRequests = newGameRequest :: model.gameRequests}, Cmd.none)
-        else if cmd == "gameId" then
+        else if cmd == "updateGameInfo" then -- Pass updated game information to Waiting Page
           let
-            game = one string "gameId" qs |> Maybe.withDefault "Error!!!Should Never Happen"  -- handle Error
+            (initWaitingModel, waitingCmd) = Waiting.init qstr
           in
-            ({model | gameId = game}, Cmd.none)
+            ({model | waitingModel = initWaitingModel}, Cmd.map WaitingMsg waitingCmd)
         else if cmd == "Error" then -- Should not happen. Throw error message to console
           let
             debugLog = (Debug.log "Error ocurred: " qstr)
@@ -150,7 +149,7 @@ update msg model =
             |> render
             |> String.dropLeft 1        -- Get rid of the '?' at the beginning of qs
           in -- TODO: Change the page to a waiting page. Until the other player responds to the request.
-            (model, WebSocket.send briscaServer cmd)
+            ({model | page = "Waiting"}, WebSocket.send briscaServer cmd)
         PlayerInfo.Back ->
           ({model | page = "Lobby"}, Cmd.none)
     LobbyMsg subMsg ->
@@ -166,7 +165,7 @@ update msg model =
             (model, WebSocket.send briscaServer cmd) -- Send request
     WaitingMsg subMsg ->
       case subMsg of
-        Waiting.Cancel ->
+        Waiting.Cancel -> -- TODO: Add more logic here to handle it better
           ({model | page = "Lobby"}, Cmd.none)
 
 
