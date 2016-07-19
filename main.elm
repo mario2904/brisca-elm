@@ -76,6 +76,7 @@ type Msg = ChangePage String
   | PlayerInfoMsg PlayerInfo.Msg
   | WaitingMsg Waiting.Msg
   | NewMessage String
+  | AcceptRequest String
 
 
 
@@ -167,7 +168,15 @@ update msg model =
       case subMsg of
         Waiting.Cancel -> -- TODO: Add more logic here to handle it better
           ({model | page = "Lobby"}, Cmd.none)
-
+    AcceptRequest gameId -> -- Accept game request and go to Waiting Page
+      let -- Create querystring to send acceptance of game request
+        cmd = empty
+        |> add "cmd" "acceptRequestToPlay"
+        |> add "gameId" gameId
+        |> render
+        |> String.dropLeft 1        -- Get rid of the '?' at the beginning of qs
+      in
+        ({model | page = "Waiting"}, WebSocket.send briscaServer cmd)
 
 -- SUBSCIPTIONS
 
@@ -222,6 +231,7 @@ viewGameRequests model =
         li []
           [ div [] [text ("GameID: " ++ req.gameId)]
           , div [] [text ("Creator: " ++ req.player)]
+          , button [onClick (AcceptRequest req.gameId)][text "Accept"]
           ]
       ) model.gameRequests)
     ]
