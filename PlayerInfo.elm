@@ -14,7 +14,7 @@ import String
 
 type alias Model =
   { player: String
-  , isPlaying: String
+  , inGame: String
   , points: Int
   , gamesWon: Int
   , gamesLost: Int
@@ -29,12 +29,12 @@ init qstrPlayerInfo =
     let -- Parse Query String and update Model with new values
       qs = parse qstrPlayerInfo
       player = one string "player" qs |> Maybe.withDefault "IDK"  -- handle Error
-      isPlaying = one string "isPlaying" qs |> Maybe.withDefault "IDK"  -- handle Error
+      inGame = one string "inGame" qs |> Maybe.withDefault "IDK"  -- handle Error
       points = one int "points" qs |> Maybe.withDefault 0 -- handle Error
       gamesWon = one int "gamesWon" qs |> Maybe.withDefault 0 -- handle Error
       gamesLost = one int "gamesLost" qs |> Maybe.withDefault 0 -- handle Error
     in
-      (Model player isPlaying points gamesWon gamesLost, Cmd.none)
+      (Model player inGame points gamesWon gamesLost, Cmd.none)
 
 
 -- UPDATE
@@ -60,7 +60,7 @@ view: Model -> Html Msg
 view model =
     div []
       [ h1 [][text model.player]
-      , div [][text ("Is Playing: " ++ model.isPlaying)]
+      , div [][text ("In Game: " ++ model.inGame)]
       , div [][text ("Total Points: " ++ (toString model.points))]
       , div [][text ("Games Won: " ++ (toString model.gamesWon))]
       , div [][text ("Games Lost: " ++ (toString model.gamesLost))]
