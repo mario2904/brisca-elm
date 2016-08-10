@@ -10,7 +10,6 @@ import String
 import Brisca
 import Lobby
 import PlayerInfo
-import Waiting
 
 
 main =
@@ -34,34 +33,35 @@ briscaServer =
 type alias Model =
   { page: String
   , playerId: String
+  , players: List String
+  , gameInfo: Lobby.GameInfo
   , gameRequests: List GameRequest
   , lobbyModel : Lobby.Model
   , briscaModel: Brisca.Model
   , playerInfoModel: PlayerInfo.Model
-  , waitingModel: Waiting.Model
   }
 
 
 type alias GameRequest =
   { player: String  -- Player that created the game
   , gameId: String
+  , numOfPlayers: String
   }
 
 
 init: (Model, Cmd Msg)
 init =
   let
-    (initWaitingModel, waitingCmd) = Waiting.init ""
-    (initLobbyModel, lobbyCmd) = Lobby.init "" ""
+    gameInfo = Lobby.GameInfo "" "2" [] -- The default is 2 player game
+    (initLobbyModel, lobbyCmd) = Lobby.init "" gameInfo []
     (initBriscaModel, briscaCmd) = Brisca.init "Player1" "Player2"
     (initPlayerInfoModel, playerInfoCmd) = PlayerInfo.init "" -- When passing Empty String, Player Info will handle it "Gracefully"
   in
-    (Model "Lobby" "" [] initLobbyModel initBriscaModel initPlayerInfoModel initWaitingModel -- Player id is unknown at first Empty string
+    (Model "Lobby" "" [] gameInfo [] initLobbyModel initBriscaModel initPlayerInfoModel -- Player id is unknown at first Empty string
     , Cmd.batch
       [ Cmd.map LobbyMsg lobbyCmd
       , Cmd.map BriscaMsg briscaCmd
       , Cmd.map PlayerInfoMsg playerInfoCmd
-      , Cmd.map WaitingMsg waitingCmd
       ]
     )
 
@@ -74,7 +74,6 @@ type Msg = ChangePage String
   | LobbyMsg Lobby.Msg
   | BriscaMsg Brisca.Msg
   | PlayerInfoMsg PlayerInfo.Msg
-  | WaitingMsg Waiting.Msg
   | NewMessage String
   | AcceptRequest String
 
@@ -95,10 +94,12 @@ update msg model =
           ({model | playerId = player}, Cmd.none)
         else if cmd == "updatePlayers" then  -- Pass query string to Lobby Page and re-render that page
           let
-            (initLobbyModel, lobbyCmd) = Lobby.init model.playerId qstr
+            newPlayers = all "players" qs
+            (initLobbyModel, lobbyCmd) = Lobby.init model.playerId model.gameInfo newPlayers
           in --- Check if page == "Lobby"  ???
             ( { model
               | lobbyModel = initLobbyModel
+              , players = newPlayers
               }
             , Cmd.map LobbyMsg lobbyCmd)
         else if cmd == "playerInfo" then -- Pass query string to PlayerInfo Page and render that page
@@ -114,14 +115,25 @@ update msg model =
           let
             player = one string "playerFrom" qs |> Maybe.withDefault "Error!!!Should Never Happen"  -- handle Error
             gameId = one string "gameId" qs |> Maybe.withDefault "Error!!!Should Never Happen"  -- handle Error
-            newGameRequest = GameRequest player gameId
+            numOfPlayers = one string "numOfPlayers" qs |> Maybe.withDefault "Error!!!Should Never Happen"  -- handle Error
+            newGameRequest = GameRequest player gameId numOfPlayers
           in
           ({model | gameRequests = newGameRequest :: model.gameRequests}, Cmd.none)
-        else if cmd == "updateGameInfo" then -- Pass updated game information to Waiting Page
+        else if cmd == "updateGameInfo" then -- Pass updated game information to GameInfo
           let
-            (initWaitingModel, waitingCmd) = Waiting.init qstr
+            --Update model GameInfo
+            gameId = one string "gameId" qs |> Maybe.withDefault "IDK"  -- handle Error
+            numOfPlayers = one string "numOfPlayers" qs |> Maybe.withDefault "IDK"  -- handle Error
+            players = all "players" qs
+            newGameInfo = Lobby.GameInfo gameId numOfPlayers players
+            (initLobbyModel, lobbyCmd) = Lobby.init model.playerId newGameInfo model.players
+            --Update Lobby GameInfo
           in
-            ({model | waitingModel = initWaitingModel}, Cmd.map WaitingMsg waitingCmd)
+            ( { model
+              | lobbyModel = initLobbyModel
+              , gameInfo = newGameInfo
+              }
+            , Cmd.map LobbyMsg lobbyCmd)
         else if cmd == "Error" then -- Should not happen. Throw error message to console
           let
             debugLog = (Debug.log "Error ocurred: " qstr)
@@ -141,16 +153,15 @@ update msg model =
         ({model | briscaModel = updatedBriscaModel}, Cmd.map BriscaMsg briscaCmd)
     PlayerInfoMsg subMsg ->
       case subMsg of
-        PlayerInfo.AskToPlay strPlayer ->
+        PlayerInfo.AskToPlay strPlayer -> -- Send ask request and return to Lobby Page
           let -- Create querystring to ask a player to play a game
             cmd = empty
             |> add "cmd" "askToPlay"
-            |> add "playerFrom" model.playerId
             |> add "playerTo" strPlayer
             |> render
             |> String.dropLeft 1        -- Get rid of the '?' at the beginning of qs
-          in -- TODO: Change the page to a waiting page. Until the other player responds to the request.
-            ({model | page = "Waiting"}, WebSocket.send briscaServer cmd)
+          in
+            ({model | page = "Lobby"}, WebSocket.send briscaServer cmd)
         PlayerInfo.Back ->
           ({model | page = "Lobby"}, Cmd.none)
     LobbyMsg subMsg ->
@@ -164,11 +175,21 @@ update msg model =
             |> String.dropLeft 1        -- Get rid of the '?' at the beginning of qs
           in
             (model, WebSocket.send briscaServer cmd) -- Send request
-    WaitingMsg subMsg ->
-      case subMsg of
-        Waiting.Cancel -> -- TODO: Add more logic here to handle it better
-          ({model | page = "Lobby"}, Cmd.none)
-    AcceptRequest gameId -> -- Accept game request and go to Waiting Page
+        Lobby.CreateGame -> -- Create a new game
+          let -- Create querystring to Create a Game
+            cmd = empty
+            |> add "cmd" "createGame"
+            |> add "numOfPlayers" model.gameInfo.numOfPlayers
+            |> render
+            |> String.dropLeft 1        -- Get rid of the '?' at the beginning of qs
+          in
+            (model, WebSocket.send briscaServer cmd) -- Send request
+        Lobby.Select num -> -- Update GameInfo numOfPlayers
+          let -- OverWrite Everything. Doesn't matter, game isn't created yet
+            newGameInfo = Lobby.GameInfo "" num []
+          in
+            ({model | gameInfo = newGameInfo}, Cmd.none)
+    AcceptRequest gameId -> -- Accept game request
       let -- Create querystring to send acceptance of game request
         cmd = empty
         |> add "cmd" "acceptRequestToPlay"
@@ -176,7 +197,7 @@ update msg model =
         |> render
         |> String.dropLeft 1        -- Get rid of the '?' at the beginning of qs
       in
-        ({model | page = "Waiting"}, WebSocket.send briscaServer cmd)
+        (model, WebSocket.send briscaServer cmd)
 
 -- SUBSCIPTIONS
 
@@ -211,10 +232,6 @@ view model =
     div []
       [ Html.map PlayerInfoMsg (PlayerInfo.view model.playerInfoModel)
       ]
-  else if model.page == "Waiting" then
-    div []
-      [ Html.map WaitingMsg (Waiting.view model.waitingModel)
-      ]
   else
     div [][]
 
@@ -230,6 +247,7 @@ viewGameRequests model =
       (List.map (\req ->
         li []
           [ div [] [text ("GameID: " ++ req.gameId)]
+          , div [] [text ("Number of Players: " ++ req.numOfPlayers)]
           , div [] [text ("Creator: " ++ req.player)]
           , button [onClick (AcceptRequest req.gameId)][text "Accept"]
           ]
