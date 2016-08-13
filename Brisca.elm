@@ -59,10 +59,18 @@ type alias Card =
   , y: Int
   }
 
-init: String -> String -> (Model, Cmd Msg)          -- For testing purposes... This will
-init strPlayer1 strPlayer2 =                        -- definitely change later on
-  let                           -- in the mean time hardcode the initial state
+init: String -> (List String) -> String -> (List String) -> (Model, Cmd Msg)
+init strPlayer1 strPlayers life cards =
+  let                           -- in the mean time hardcode the initial state for 2 player game
     cardImg = "img/flippedVertical.jpg"
+    -- Extract the 3 cards
+    card1 = List.head cards |> Maybe.withDefault "Error"
+    card2 = List.tail cards |> Maybe.withDefault [] |> List.head |> Maybe.withDefault "Error"
+    card3 = List.tail cards |> Maybe.withDefault [] |> List.tail |> Maybe.withDefault [] |> List.head |> Maybe.withDefault "Error"
+    --  Re-order players (First is "Me")
+    orderedPlayers = rearrangeOrder strPlayer1 strPlayers
+    orderedPlayer1 = List.head orderedPlayers |> Maybe.withDefault "Error"
+    orderedPlayer2 = List.tail orderedPlayers |> Maybe.withDefault [] |> List.head |> Maybe.withDefault "Error"
 
     p1_Y = c.boardHeight - c.cardHeight - (2 * c.margin)
 
@@ -70,16 +78,16 @@ init strPlayer1 strPlayer2 =                        -- definitely change later o
     p_X2 = p_X1 + c.cardWidth + (2 * c.margin)
     p_X3 = p_X2 + c.cardWidth + (2 * c.margin)
 
-    cardP1_1 = Card cardImg 0 p_X1 p1_Y
-    cardP1_2 = Card cardImg 1 p_X2 p1_Y
-    cardP1_3 = Card cardImg 2 p_X3 p1_Y
+    cardP1_1 = Card ("img/" ++ card1 ++ ".jpg") 0 p_X1 p1_Y
+    cardP1_2 = Card ("img/" ++ card2 ++ ".jpg") 1 p_X2 p1_Y
+    cardP1_3 = Card ("img/" ++ card3 ++ ".jpg") 2 p_X3 p1_Y
 
     cardP2_1 = Card cardImg 0 p_X1 0
     cardP2_2 = Card cardImg 1 p_X2 0
     cardP2_3 = Card cardImg 2 p_X3 0
 
-    player1 = Player [cardP1_1, cardP1_2, cardP1_3] strPlayer1 False
-    player2 = Player [cardP2_1, cardP2_2, cardP2_3] strPlayer2 False
+    player1 = Player [cardP1_1, cardP1_2, cardP1_3] orderedPlayer1 False
+    player2 = Player [cardP2_1, cardP2_2, cardP2_3] orderedPlayer2 False
     players = [player1, player2]
 
     board = "img/board.jpg"
@@ -226,3 +234,18 @@ viewPlayers model =
     [ h1 [][text "Players:"]
     , ol [] (List.map (\player -> li [][text player.playerId]) model.players)
     ]
+
+
+-- PRIVATE HELPER FUNCTIONS
+
+
+
+rearrangeOrder: String -> (List String) -> (List String)
+rearrangeOrder player players =
+  case List.head players of
+    Nothing -> []
+    Just head ->
+      if head == player then
+        players
+      else
+        List.append (List.drop 1 players) [head]

@@ -54,7 +54,7 @@ init =
   let
     gameInfo = Lobby.GameInfo "" "2" [] -- The default is 2 player game
     (initLobbyModel, lobbyCmd) = Lobby.init "" gameInfo []
-    (initBriscaModel, briscaCmd) = Brisca.init "Player1" "Player2"
+    (initBriscaModel, briscaCmd) = Brisca.init "" [] "" []
     (initPlayerInfoModel, playerInfoCmd) = PlayerInfo.init "" -- When passing Empty String, Player Info will handle it "Gracefully"
   in
     (Model "Lobby" "" [] gameInfo [] initLobbyModel initBriscaModel initPlayerInfoModel -- Player id is unknown at first Empty string
@@ -134,6 +134,18 @@ update msg model =
               , gameInfo = newGameInfo
               }
             , Cmd.map LobbyMsg lobbyCmd)
+        else if cmd == "startGame" then -- Go to Brisca Page and pass the necessary information
+          let
+            cards = all "cards" qs
+            life = one string "life" qs |> Maybe.withDefault "Error!!!Should Never Happen"  -- handle Error
+
+            (initBriscaModel, briscaCmd) = Brisca.init model.playerId model.gameInfo.players life cards
+          in
+            ( { model
+              | briscaModel = initBriscaModel
+              , page = "Brisca"
+              }
+            , Cmd.map BriscaMsg briscaCmd)
         else if cmd == "Error" then -- Should not happen. Throw error message to console
           let
             debugLog = (Debug.log "Error ocurred: " qstr)
@@ -143,7 +155,7 @@ update msg model =
           (model, Cmd.none)
     ChangePage newPage -> -- For debugging only. I will Eventually delete this.
       let
-        (initBriscaModel, briscaCmd) = Brisca.init model.lobbyModel.playerId "Player2"
+        (initBriscaModel, briscaCmd) = Brisca.init model.lobbyModel.playerId [] "" []
       in
         ({model | page = newPage, briscaModel = initBriscaModel}, Cmd.map BriscaMsg briscaCmd)
     BriscaMsg subMsg ->
